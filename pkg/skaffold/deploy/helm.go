@@ -194,11 +194,24 @@ func (h *HelmDeployer) deployRelease(ctx context.Context, out io.Writer, r lates
 		return nil, errors.Wrap(err, "cannot parse the release name template")
 	}
 
-	isInstalled := true
-	if err := h.helm(ctx, ioutil.Discard, false, "get", releaseName); err != nil {
-		color.Yellow.Fprintf(out, "Helm release %s not installed. Installing...\n", releaseName)
-		isInstalled = false
+	helmV3, err := h.isHelmV3(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get helm version")
 	}
+
+	isInstalled := true
+	if helmV3 {
+		if err := h.helm(ctx, ioutil.Discard, false, "get", "all", releaseName); err != nil {
+			color.Yellow.Fprintf(out, "Helm release %s not installed. Installing...\n", releaseName)
+			isInstalled = false
+		}
+	} else {
+		if err := h.helm(ctx, ioutil.Discard, false, "get", releaseName); err != nil {
+			color.Yellow.Fprintf(out, "Helm release %s not installed. Installing...\n", releaseName)
+			isInstalled = false
+		}
+	}
+
 
 	// Dependency builds should be skipped when trying to install a chart
 	// with local dependencies in the chart folder, e.g. the istio helm chart.
@@ -210,11 +223,6 @@ func (h *HelmDeployer) deployRelease(ctx context.Context, out io.Writer, r lates
 		if err := h.helm(ctx, out, false, "dep", "build", r.ChartPath); err != nil {
 			return nil, errors.Wrap(err, "building helm dependencies")
 		}
-	}
-
-	helmV3, err := h.isHelmV3(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot get helm version")
 	}
 
 	var args []string
@@ -231,7 +239,7 @@ func (h *HelmDeployer) deployRelease(ctx context.Context, out io.Writer, r lates
 		if h.forceDeploy {
 			args = append(args, "--force")
 		}
-		if r.RecreatePods {
+		if !helmV3 && r.RecreatePods {
 			args = append(args, "--recreate-pods")
 		}
 	}
