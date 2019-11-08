@@ -215,7 +215,6 @@ func (h *HelmDeployer) deployRelease(ctx context.Context, out io.Writer, r lates
 		}
 	}
 
-
 	// Dependency builds should be skipped when trying to install a chart
 	// with local dependencies in the chart folder, e.g. the istio helm chart.
 	// This decision is left to the user.
@@ -433,9 +432,21 @@ func (h *HelmDeployer) packageChart(ctx context.Context, r latest.HelmRelease) (
 }
 
 func (h *HelmDeployer) getReleaseInfo(ctx context.Context, release string) (*bufio.Reader, error) {
+
+	helmV3, err := h.isHelmV3(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get helm version")
+	}
+
 	var releaseInfo bytes.Buffer
-	if err := h.helm(ctx, &releaseInfo, false, "get", release); err != nil {
-		return nil, fmt.Errorf("error retrieving helm deployment info: %s", releaseInfo.String())
+	if helmV3 {
+		if err := h.helm(ctx, &releaseInfo, false, "get", "all", release); err != nil {
+			return nil, fmt.Errorf("error retrieving helm deployment info: %s", releaseInfo.String())
+		}
+	} else {
+		if err := h.helm(ctx, &releaseInfo, false, "get", release); err != nil {
+			return nil, fmt.Errorf("error retrieving helm deployment info: %s", releaseInfo.String())
+		}
 	}
 	return bufio.NewReader(&releaseInfo), nil
 }
