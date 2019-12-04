@@ -203,8 +203,21 @@ func (h *HelmDeployer) deployRelease(ctx context.Context, out io.Writer, r lates
 	}
 
 	isInstalled := true
+
+	var ns string
+	if h.namespace != "" {
+		ns = h.namespace
+	} else if r.Namespace != "" {
+		ns = r.Namespace
+	}
 	if helmV3 {
-		if err := h.helm(ctx, ioutil.Discard, false, "get", "all", releaseName); err != nil {
+		var installedArgs []string
+
+		installedArgs = append(installedArgs, "get", "all", releaseName)
+		if ns != "" {
+			installedArgs = append(installedArgs, "--namespace", ns)
+		}
+		if err := h.helm(ctx, ioutil.Discard, false, installedArgs...); err != nil {
 			color.Yellow.Fprintf(out, "Helm release %s not installed. Installing...\n", releaseName)
 			isInstalled = false
 		}
@@ -266,12 +279,6 @@ func (h *HelmDeployer) deployRelease(ctx context.Context, out io.Writer, r lates
 		args = append(args, chartPath)
 	}
 
-	var ns string
-	if h.namespace != "" {
-		ns = h.namespace
-	} else if r.Namespace != "" {
-		ns = r.Namespace
-	}
 	if ns != "" {
 		args = append(args, "--namespace", ns)
 	}
@@ -431,7 +438,7 @@ func (h *HelmDeployer) packageChart(ctx context.Context, r latest.HelmRelease) (
 	return filepath.Join(tmp, fpath), nil
 }
 
-func (h *HelmDeployer) getReleaseInfo(ctx context.Context, release string) (*bufio.Reader, error) {
+func (h *HelmDeployer) getReleaseInfo(ctx context.Context, release string, namespace string) (*bufio.Reader, error) {
 
 	helmV3, err := h.isHelmV3(ctx)
 	if err != nil {
@@ -440,7 +447,12 @@ func (h *HelmDeployer) getReleaseInfo(ctx context.Context, release string) (*buf
 
 	var releaseInfo bytes.Buffer
 	if helmV3 {
-		if err := h.helm(ctx, &releaseInfo, false, "get", "all", release); err != nil {
+		var installedArgs []string
+		installedArgs = append(installedArgs, "get", "all", release)
+		if namespace != "" {
+			installedArgs = append(installedArgs, "--namespace", namespace)
+		}
+		if err := h.helm(ctx, &releaseInfo, false, installedArgs...); err != nil {
 			return nil, fmt.Errorf("error retrieving helm deployment info: %s", releaseInfo.String())
 		}
 	} else {
@@ -490,7 +502,7 @@ func getImageSetValueFromHelmStrategy(cfg *latest.HelmConventionConfig, valueNam
 // Skaffold labels will be applied to each deployed k8s object
 // Since helm isn't always consistent with retrieving results, don't return errors here
 func (h *HelmDeployer) getDeployResults(ctx context.Context, namespace string, release string) []Artifact {
-	b, err := h.getReleaseInfo(ctx, release)
+	b, err := h.getReleaseInfo(ctx, release, namespace)
 	if err != nil {
 		logrus.Warnf(err.Error())
 		return nil
@@ -511,6 +523,16 @@ func (h *HelmDeployer) deleteRelease(ctx context.Context, out io.Writer, r lates
 	args := []string{"delete", releaseName}
 	if !helmV3 {
 		args = append(args, "--purge")
+	} else {
+		var ns string
+		if h.namespace != "" {
+			ns = h.namespace
+		} else if r.Namespace != "" {
+			ns = r.Namespace
+		}
+		if ns != "" {
+			args = append(args, "--namespace", ns)
+		}
 	}
 	if err := h.helm(ctx, out, false, args...); err != nil {
 		logrus.Debugf("deleting release %s: %v\n", releaseName, err)
