@@ -234,11 +234,9 @@ func (h *HelmDeployer) deployRelease(ctx context.Context, out io.Writer, r lates
 			color.Yellow.Fprintf(out, "Helm release %s not installed. Installing...\n", releaseName)
 			isInstalled = false
 		}
-	} else {
-		if err := h.helm(ctx, ioutil.Discard, false, "get", releaseName); err != nil {
-			color.Yellow.Fprintf(out, "Helm release %s not installed. Installing...\n", releaseName)
-			isInstalled = false
-		}
+	} else if err := h.helm(ctx, ioutil.Discard, false, "get", releaseName); err != nil {
+		color.Yellow.Fprintf(out, "Helm release %s not installed. Installing...\n", releaseName)
+		isInstalled = false
 	}
 
 	// Dependency builds should be skipped when trying to install a chart
@@ -466,10 +464,8 @@ func (h *HelmDeployer) getReleaseInfo(ctx context.Context, release string, names
 		if err := h.helm(ctx, &releaseInfo, false, installedArgs...); err != nil {
 			return nil, fmt.Errorf("error retrieving helm deployment info: %s", releaseInfo.String())
 		}
-	} else {
-		if err := h.helm(ctx, &releaseInfo, false, "get", release); err != nil {
-			return nil, fmt.Errorf("error retrieving helm deployment info: %s", releaseInfo.String())
-		}
+	} else if err := h.helm(ctx, &releaseInfo, false, "get", release); err != nil {
+		return nil, fmt.Errorf("error retrieving helm deployment info: %s", releaseInfo.String())
 	}
 	return bufio.NewReader(&releaseInfo), nil
 }
