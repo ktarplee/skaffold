@@ -46,6 +46,7 @@ import (
 	"github.com/GoogleContainerTools/skaffold/pkg/skaffold/warnings"
 )
 
+// HelmDeployer is a the main helm deployment object that orchestrates interfaces with the Helm CLI
 type HelmDeployer struct {
 	*latest.HelmDeploy
 
@@ -67,12 +68,14 @@ func NewHelmDeployer(runCtx *runcontext.RunContext) *HelmDeployer {
 	}
 }
 
+// Labels returns the set of labels used to find helm deployed objects.
 func (h *HelmDeployer) Labels() map[string]string {
 	return map[string]string{
 		constants.Labels.Deployer: "helm",
 	}
 }
 
+// Deploy a helm chart
 func (h *HelmDeployer) Deploy(ctx context.Context, out io.Writer, builds []build.Artifact, labellers []Labeller) *Result {
 	event.DeployInProgress()
 
@@ -124,6 +127,7 @@ func (h *HelmDeployer) Deploy(ctx context.Context, out io.Writer, builds []build
 	return NewDeploySuccessResult(namespaces)
 }
 
+// Dependencies returns the file dependencies for a Chart
 func (h *HelmDeployer) Dependencies() ([]string, error) {
 	var deps []string
 	for _, release := range h.Releases {
@@ -448,7 +452,6 @@ func (h *HelmDeployer) packageChart(ctx context.Context, r latest.HelmRelease) (
 }
 
 func (h *HelmDeployer) getReleaseInfo(ctx context.Context, release string, namespace string) (*bufio.Reader, error) {
-
 	helmV3, err := h.isHelmV3(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get helm version")
@@ -577,6 +580,7 @@ func generateGetFilesArgs(m map[string]string, valuesSet map[string]bool) []stri
 	return args
 }
 
+// Render renders a helm template (not implemented)
 func (h *HelmDeployer) Render(context.Context, io.Writer, []build.Artifact, []Labeller, string) error {
 	return errors.New("not yet implemented")
 }
